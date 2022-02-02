@@ -8,15 +8,35 @@ contract VotingMachine {
 
     EnumerableSet.AddressSet private candidates;
 
+    uint public candidateRegistrationExpiration;
+    uint public voteStart;
+    uint public voteEnd;
+
     event CandidateAdded(address candidate);
 
-    //TODO: there is a time when candidates can register
+    error CandidateRegistrationEnded();
+    error ConstructorDurationsNotValid();
+
+    constructor(uint durationToCandidateRegistrationEnd, uint durationToStartVote, uint durationToEndVote) {
+        if (durationToStartVote > durationToEndVote || durationToCandidateRegistrationEnd > durationToEndVote) {
+            revert ConstructorDurationsNotValid();
+        }
+        candidateRegistrationExpiration = block.timestamp + durationToCandidateRegistrationEnd;
+        voteStart = block.timestamp + durationToStartVote;
+        voteEnd = block.timestamp + durationToEndVote;
+    }
+
+    modifier isCandidateRegistrationTime() {
+        if (block.timestamp >= candidateRegistrationExpiration) {
+            revert CandidateRegistrationEnded();
+        }
+        _;
+    }
 
     //TODO: one user can vote for one candidate
 
-    //TODO: there is a start & end of the voting
 
-    function registerCandidate() external {
+    function registerCandidate() external isCandidateRegistrationTime {
         bool candidateAdded = candidates.add(msg.sender);
         if (candidateAdded) {
             emit CandidateAdded(msg.sender);

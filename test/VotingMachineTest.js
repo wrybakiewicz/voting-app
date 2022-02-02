@@ -45,5 +45,45 @@ contract("test adding candidates", async accounts => {
         assert.equal(candidates[1], account2);
         truffleAssert.eventEmitted(registerCandidateResult, "CandidateAdded", {candidate: account2})
     });
+});
 
+contract("test adding candidate after candidate registration time", async accounts => {
+    const account = accounts[0];
+
+    it("should revert when register after registration end", async () => {
+        const votingMachine = await VotingMachine.new(0, 1, 2);
+
+        await truffleAssert.reverts(votingMachine.registerCandidate({from: account}));
+    });
+
+    it("should register when registered before registration end", async () => {
+        const votingMachine = await VotingMachine.new(500, 1000, 2000);
+
+        const registerCandidateResult = await votingMachine.registerCandidate({from: account});
+
+        const candidates = await votingMachine.getCandidates();
+        assert.equal(candidates.length, 1);
+        assert.equal(candidates[0], account);
+        truffleAssert.eventEmitted(registerCandidateResult, "CandidateAdded", {candidate: account})
+    });
+});
+
+contract("test constructor durations: candidate registration end, vote start, vote end", async accounts => {
+    const account = accounts[0];
+
+    it("should not revert when candidate registration < vote start < vote end", async () => {
+        await VotingMachine.new(0, 1, 2);
+    });
+
+    it("should not revert when vote start < candidate registration < vote end", async () => {
+        await VotingMachine.new(1, 0, 2);
+    });
+
+    it("should revert when vote end > candidate registration", async () => {
+        await truffleAssert.reverts(VotingMachine.new(3, 1, 2, {from: account}));
+    });
+
+    it("should revert when vote start > vote end", async () => {
+        await truffleAssert.reverts(VotingMachine.new(0, 2, 1, {from: account}));
+    });
 });
