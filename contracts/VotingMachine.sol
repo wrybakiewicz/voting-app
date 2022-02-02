@@ -8,7 +8,7 @@ contract VotingMachine {
 
     EnumerableSet.AddressSet private candidates;
 
-    event CandidateAdded(address);
+    event CandidateAdded(address candidate);
 
     //TODO: there is a time when candidates can register
 
