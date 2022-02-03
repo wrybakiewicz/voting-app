@@ -1,4 +1,5 @@
 const truffleAssert = require('truffle-assertions');
+const { time } = require('@openzeppelin/test-helpers');
 
 const VotingMachine = artifacts.require("VotingMachine");
 
@@ -86,4 +87,70 @@ contract("test constructor durations: candidate registration end, vote start, vo
     it("should revert when vote start > vote end", async () => {
         await truffleAssert.reverts(VotingMachine.new(0, 2, 1, {from: account}));
     });
+});
+
+contract("test voting ability", accounts => {
+    const account1 = accounts[0];
+    const account2 = accounts[1];
+    const account3 = accounts[2];
+
+    it("should not let vote for candidate if try to vote before start", async () => {
+        const votingMachine = await VotingMachine.new(3, 5, 10);
+        await votingMachine.registerCandidate({from: account1});
+
+        await truffleAssert.reverts(votingMachine.vote(account2, {from: account1}));
+    });
+
+    it("should not let vote for candidate if try to vote after end", async () => {
+        const votingMachine = await VotingMachine.new(5, 0, 10);
+        await votingMachine.registerCandidate({from: account1});
+        await time.increase(15);
+        await time.advanceBlock();
+
+        await truffleAssert.reverts(votingMachine.vote(account2, {from: account1}));
+    });
+
+
+    it("should let vote for candidate if vote after start before end", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+        await votingMachine.registerCandidate({from: account1});
+
+        await votingMachine.vote(account1, {from: account2});
+        //TODO: check emit event & others
+    });
+
+    it("should let vote for two different candidates", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+        await votingMachine.registerCandidate({from: account1});
+        await votingMachine.registerCandidate({from: account2});
+
+        await votingMachine.vote(account2, {from: account1});
+        await votingMachine.vote(account1, {from: account2});
+        //TODO: check emit event & others x2
+    });
+
+    it("should not let vote 2 times", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+        await votingMachine.registerCandidate({from: account1});
+        await votingMachine.registerCandidate({from: account3});
+
+        await votingMachine.vote(account1, {from: account2});
+        await truffleAssert.reverts(votingMachine.vote(account3, {from: account2}));
+    });
+
+    it("should let 2 voters for 1 candidate", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+        await votingMachine.registerCandidate({from: account3});
+
+        await votingMachine.vote(account3, {from: account1});
+        await votingMachine.vote(account3, {from: account2});
+        //TODO: check emit event & others x2
+    });
+
+    it("should not let vote for non candidate", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+
+        await truffleAssert.reverts(votingMachine.vote(account2, {from: account1}));
+    });
+
 });
