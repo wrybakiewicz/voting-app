@@ -1,5 +1,5 @@
 const truffleAssert = require('truffle-assertions');
-const { time } = require('@openzeppelin/test-helpers');
+const {time} = require('@openzeppelin/test-helpers');
 
 const VotingMachine = artifacts.require("VotingMachine");
 
@@ -69,9 +69,7 @@ contract("test adding candidate after candidate registration time", async accoun
     });
 });
 
-contract("test constructor durations: candidate registration end, vote start, vote end", async accounts => {
-    const account = accounts[0];
-
+contract("test constructor durations: candidate registration end, vote start, vote end", async _ => {
     it("should not revert when candidate registration < vote start < vote end", async () => {
         await VotingMachine.new(0, 1, 2);
     });
@@ -81,15 +79,15 @@ contract("test constructor durations: candidate registration end, vote start, vo
     });
 
     it("should revert when vote end > candidate registration", async () => {
-        await truffleAssert.reverts(VotingMachine.new(3, 1, 2, {from: account}));
+        await truffleAssert.reverts(VotingMachine.new(3, 1, 2, {gas: 999999}));
     });
 
     it("should revert when vote start > vote end", async () => {
-        await truffleAssert.reverts(VotingMachine.new(0, 2, 1, {from: account}));
+        await truffleAssert.reverts(VotingMachine.new(0, 2, 1, {gas: 999999}));
     });
 });
 
-contract("test voting ability", accounts => {
+contract("test voting", accounts => {
     const account1 = accounts[0];
     const account2 = accounts[1];
     const account3 = accounts[2];
@@ -115,8 +113,15 @@ contract("test voting ability", accounts => {
         const votingMachine = await VotingMachine.new(2, 0, 10);
         await votingMachine.registerCandidate({from: account1});
 
-        await votingMachine.vote(account1, {from: account2});
-        //TODO: check emit event & others
+        const voteResult = await votingMachine.vote(account1, {from: account2});
+
+        const returnedWinner = await votingMachine.winner();
+        assert.equal(returnedWinner.winnerAddress, account1);
+        assert.equal(returnedWinner.voteCount, 1);
+        truffleAssert.eventEmitted(voteResult, "Voted", {candidate: account1});
+        truffleAssert.eventEmitted(voteResult, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account1 && winner[0].voteCount === '1';
+        });
     });
 
     it("should let vote for two different candidates", async () => {
@@ -124,9 +129,18 @@ contract("test voting ability", accounts => {
         await votingMachine.registerCandidate({from: account1});
         await votingMachine.registerCandidate({from: account2});
 
-        await votingMachine.vote(account2, {from: account1});
-        await votingMachine.vote(account1, {from: account2});
-        //TODO: check emit event & others x2
+        const voteResult1 = await votingMachine.vote(account2, {from: account1});
+        const voteResult2 = await votingMachine.vote(account1, {from: account2});
+
+        const winner = await votingMachine.winner();
+        assert.equal(winner.winnerAddress, account2);
+        assert.equal(winner.voteCount, 1);
+        truffleAssert.eventEmitted(voteResult1, "Voted", {candidate: account2});
+        truffleAssert.eventEmitted(voteResult1, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account2 && winner[0].voteCount === '1';
+        });
+        truffleAssert.eventEmitted(voteResult2, "Voted", {candidate: account1});
+        truffleAssert.eventNotEmitted(voteResult2, "NewWinner");
     });
 
     it("should not let vote 2 times", async () => {
@@ -142,9 +156,20 @@ contract("test voting ability", accounts => {
         const votingMachine = await VotingMachine.new(2, 0, 10);
         await votingMachine.registerCandidate({from: account3});
 
-        await votingMachine.vote(account3, {from: account1});
-        await votingMachine.vote(account3, {from: account2});
-        //TODO: check emit event & others x2
+        const voteResult1 = await votingMachine.vote(account3, {from: account1});
+        const voteResult2 = await votingMachine.vote(account3, {from: account2});
+
+        const winner = await votingMachine.winner();
+        assert.equal(winner.winnerAddress, account3);
+        assert.equal(winner.voteCount, 2);
+        truffleAssert.eventEmitted(voteResult1, "Voted", {candidate: account3});
+        truffleAssert.eventEmitted(voteResult1, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account3 && winner[0].voteCount === '1';
+        });
+        truffleAssert.eventEmitted(voteResult2, "Voted", {candidate: account3});
+        truffleAssert.eventEmitted(voteResult2, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account3 && winner[0].voteCount === '2';
+        });
     });
 
     it("should not let vote for non candidate", async () => {
@@ -153,4 +178,36 @@ contract("test voting ability", accounts => {
         await truffleAssert.reverts(votingMachine.vote(account2, {from: account1}));
     });
 
+    it("should return 0x as winner when no votes", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+
+        const winner = await votingMachine.winner();
+
+        assert.equal(winner.winnerAddress, 0x0000000000000000000000000000000000000000);
+        assert.equal(winner.voteCount, 0);
+    });
+
+    it("should let 3 voters vote for 2 candidates", async () => {
+        const votingMachine = await VotingMachine.new(2, 0, 10);
+        await votingMachine.registerCandidate({from: account1});
+        await votingMachine.registerCandidate({from: account2});
+
+        const voteResult1 = await votingMachine.vote(account1, {from: account1});
+        const voteResult2 = await votingMachine.vote(account1, {from: account2});
+        const voteResult3 = await votingMachine.vote(account2, {from: account3});
+
+        const winner = await votingMachine.winner();
+        assert.equal(winner.winnerAddress, account1);
+        assert.equal(winner.voteCount, 2);
+        truffleAssert.eventEmitted(voteResult1, "Voted", {candidate: account1});
+        truffleAssert.eventEmitted(voteResult1, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account1 && winner[0].voteCount === '1';
+        });
+        truffleAssert.eventEmitted(voteResult2, "Voted", {candidate: account1});
+        truffleAssert.eventEmitted(voteResult2, "NewWinner", (winner) => {
+            return winner[0].winnerAddress === account1 && winner[0].voteCount === '2';
+        });
+        truffleAssert.eventEmitted(voteResult3, "Voted", {candidate: account2});
+        truffleAssert.eventNotEmitted(voteResult3, "NewWinner");
+    });
 });

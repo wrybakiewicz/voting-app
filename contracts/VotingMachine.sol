@@ -4,18 +4,25 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract VotingMachine {
 
+    struct Winner {
+        address winnerAddress;
+        uint voteCount;
+    }
+
     using EnumerableSet for EnumerableSet.AddressSet;
 
     EnumerableSet.AddressSet private candidates;
-
     uint public candidateRegistrationExpiration;
     uint public voteStart;
     uint public voteEnd;
 
     mapping(address => bool) haveVoted;
-    //TODO: map candidate => vote count
+    mapping(address => uint) voteCount;
+    Winner public winner;
 
     event CandidateAdded(address candidate);
+    event Voted(address candidate);
+    event NewWinner(Winner winner);
 
     error CandidateRegistrationEnded();
     error ConstructorDurationsNotValid();
@@ -74,8 +81,13 @@ contract VotingMachine {
         return candidates.values();
     }
 
-    //TODO: one user can vote for one candidate
     function vote(address candidate) external isTimeToVote haveNotVoted isCandidate(candidate) {
         haveVoted[msg.sender] = true;
+        voteCount[candidate] += 1;
+        if(voteCount[candidate] > winner.voteCount) {
+            winner = Winner(candidate, voteCount[candidate]);
+            emit NewWinner(winner);
+        }
+        emit Voted(candidate);
     }
 }
