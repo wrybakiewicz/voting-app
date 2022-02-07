@@ -12,6 +12,7 @@ contract VotingMachine {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     EnumerableSet.AddressSet private candidates;
+    //TODO: test get those 3 variables
     uint public candidateRegistrationExpiration;
     uint public voteStart;
     uint public voteEnd;

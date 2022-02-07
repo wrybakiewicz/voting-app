@@ -3,11 +3,18 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { Drizzle, generateStore } from "@drizzle/store";
+import { DrizzleContext } from "@drizzle/react-plugin";
+import VotingMachine from './contracts/VotingMachine.json'
+
+const options = { contracts: [VotingMachine] };
+const drizzleStore = generateStore(options);
+const drizzle = new Drizzle(options, drizzleStore);
 
 ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+    <DrizzleContext.Provider drizzle={drizzle}>
+        <App />
+    </DrizzleContext.Provider>,
   document.getElementById('root')
 );
 

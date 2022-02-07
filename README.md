@@ -8,3 +8,4 @@ Users can vote for candidates.
 ##How to run
 - `make develop`
 - `make migrate`
+- from ./client `npm install` `npm start`
